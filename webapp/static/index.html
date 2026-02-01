@@ -1,0 +1,225 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>text-to-column UI</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 14px; }
+    textarea { width: 100%; height: 320px; padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin: 10px 0; }
+    select, button { padding: 8px 10px; }
+    button { cursor: pointer; }
+    table { border-collapse: collapse; width: 100%; margin-top: 14px; }
+    th, td { border: 1px solid #ddd; padding: 8px; font-size: 14px; vertical-align: top; }
+    th { text-align:left; background: #fafafa; position: sticky; top: 0; }
+    pre { background:#f6f8fa; padding:12px; overflow:auto; border-radius: 8px; }
+    .meta { color:#555; font-size: 13px; }
+    .err { color:#b00020; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h2>text-to-column Web UI</h2>
+  <div class="meta">
+    Select platform + command → paste CLI output → Parse (JSON/table) or CSV.
+  </div>
+
+  <div class="row">
+    <label>Platform:</label>
+    <select id="platform"></select>
+
+    <label>Command:</label>
+    <select id="command" style="min-width: 320px;"></select>
+
+    <label style="display:flex; gap:6px; align-items:center;">
+      <input id="autodetect" type="checkbox" /> Auto-detect
+    </label>
+
+    <button id="parseBtn">Parse</button>
+    <button id="csvBtn">Parse → CSV</button>
+    <button id="previewBtn">Template preview</button>
+  </div>
+
+  <div class="row" style="margin-top: 4px;">
+    <label><b>Batch parse:</b></label>
+    <input id="files" type="file" multiple accept=".txt" />
+    <button id="batchBtn">Upload → ZIP (CSVs)</button>
+    <span class="meta">(uses command above, or Auto-detect)</span>
+  </div>
+
+  <textarea id="input" placeholder="Paste command output here..."></textarea>
+
+  <div id="status" class="meta"></div>
+  <div id="out"></div>
+
+<script>
+const api = async (path, opts={}) => {
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data.detail || JSON.stringify(data);
+    throw new Error(msg);
+  }
+  return data;
+};
+
+async function loadPlatforms() {
+  const p = await api("/api/platforms");
+  const sel = document.querySelector("#platform");
+  sel.innerHTML = p.platforms.map(x => `<option value="${x}">${x}</option>`).join("");
+  await loadCommands();
+}
+
+async function loadCommands() {
+  const platform = document.querySelector("#platform").value;
+  const c = await api(`/api/commands/${encodeURIComponent(platform)}`);
+  const sel = document.querySelector("#command");
+  sel.innerHTML = c.commands.map(x => `<option value="${x}">${x}</option>`).join("");
+}
+
+function renderTable(headers, rows) {
+  if (!rows || rows.length === 0) return "<p><b>No rows parsed.</b></p>";
+  const head = "<tr>" + headers.map(h => `<th>${escapeHtml(h)}</th>`).join("") + "</tr>";
+  const body = rows.map(r => "<tr>" + headers.map(h => `<td>${escapeHtml(String(r[h] ?? ""))}</td>`).join("") + "</tr>").join("");
+  return `<div style="max-height:420px; overflow:auto; border:1px solid #ddd; border-radius:8px; margin-top:12px;">`
+    + `<table>${head}${body}</table></div>`;
+}
+
+function escapeHtml(s) {
+  return s.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+
+async function doParse(output="json") {
+  const platform = document.querySelector("#platform").value;
+  const command = document.querySelector("#command").value;
+  const text = document.querySelector("#input").value;
+  const autodetect = document.querySelector("#autodetect").checked;
+
+  document.querySelector("#status").textContent = "Parsing...";
+  document.querySelector("#out").innerHTML = "";
+
+  try {
+    const data = await api("/api/parse", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({platform, command, text, output, autodetect})
+    });
+
+    if (output === "csv") {
+      document.querySelector("#status").textContent = `OK (CSV).`;
+      const fname = `${platform}_${(autodetect ? "autodetect" : command).toLowerCase().replaceAll(" ","_")}.csv`;
+      document.querySelector("#out").innerHTML =
+        `<h3>CSV</h3>
+         <div class="row">
+           <button id="downloadCsvBtn">Download CSV</button>
+         </div>
+         <pre>${escapeHtml(data.csv)}</pre>`;
+      document.querySelector("#downloadCsvBtn").addEventListener("click", () => downloadText(fname, data.csv, "text/csv"));
+      return;
+    }
+
+    document.querySelector("#status").textContent =
+      `OK. template=${data.template} rows=${(data.rows||[]).length}` + (autodetect ? ` (auto)` : ``);
+    document.querySelector("#out").innerHTML =
+      `<h3>Table</h3>` + renderTable(data.headers, data.rows) +
+      `<h3>JSON</h3><pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+  } catch (e) {
+    document.querySelector("#status").textContent = "";
+    document.querySelector("#out").innerHTML = `<div class="err"><b>Error:</b>\n${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function previewTemplate() {
+  const platform = document.querySelector("#platform").value;
+  const command = document.querySelector("#command").value;
+  const autodetect = document.querySelector("#autodetect").checked;
+  const text = document.querySelector("#input").value;
+
+  document.querySelector("#status").textContent = "Loading template...";
+  document.querySelector("#out").innerHTML = "";
+
+  try {
+    let useCommand = command;
+    if (autodetect) {
+      const det = await api("/api/autodetect", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({platform, command:"", text, output:"json", autodetect:true})
+      });
+      useCommand = det.command;
+    }
+
+    const data = await api(`/api/template_preview?platform=${encodeURIComponent(platform)}&command=${encodeURIComponent(useCommand)}`);
+    document.querySelector("#status").textContent = `Template: ${data.template}`;
+    document.querySelector("#out").innerHTML =
+      `<h3>Template preview</h3>
+       <div class="meta">command: <b>${escapeHtml(useCommand)}</b></div>
+       <h4>Normalized (used by parser)</h4>
+       <pre>${escapeHtml(data.normalized)}</pre>
+       <h4>Raw</h4>
+       <pre>${escapeHtml(data.raw)}</pre>`;
+  } catch (e) {
+    document.querySelector("#status").textContent = "";
+    document.querySelector("#out").innerHTML = `<div class="err"><b>Error:</b>\n${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function batchParse() {
+  const platform = document.querySelector("#platform").value;
+  const command = document.querySelector("#command").value;
+  const autodetect = document.querySelector("#autodetect").checked;
+  const filesEl = document.querySelector("#files");
+  if (!filesEl.files || filesEl.files.length === 0) {
+    alert("Choose one or more .txt files first.");
+    return;
+  }
+
+  document.querySelector("#status").textContent = `Uploading ${filesEl.files.length} file(s)...`;
+  document.querySelector("#out").innerHTML = "";
+
+  const fd = new FormData();
+  fd.append("platform", platform);
+  fd.append("command", command);
+  fd.append("autodetect", autodetect ? "true" : "false");
+  for (const f of filesEl.files) fd.append("files", f, f.name);
+
+  try {
+    const res = await fetch("/api/batch_parse", { method: "POST", body: fd });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    downloadBlob(`parsed_csvs_${platform}.zip`, blob);
+    document.querySelector("#status").textContent = "OK. ZIP downloaded (includes summary.json).";
+  } catch (e) {
+    document.querySelector("#status").textContent = "";
+    document.querySelector("#out").innerHTML = `<div class="err"><b>Error:</b>\n${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function downloadText(filename, text, mime) {
+  downloadBlob(filename, new Blob([text], {type: mime || "text/plain"}));
+}
+
+document.querySelector("#platform").addEventListener("change", loadCommands);
+document.querySelector("#parseBtn").addEventListener("click", () => doParse("json"));
+document.querySelector("#csvBtn").addEventListener("click", () => doParse("csv"));
+document.querySelector("#previewBtn").addEventListener("click", previewTemplate);
+document.querySelector("#batchBtn").addEventListener("click", batchParse);
+
+loadPlatforms();
+</script>
+</body>
+</html>

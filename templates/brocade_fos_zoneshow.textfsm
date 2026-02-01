@@ -1,0 +1,23 @@
+Value Filldown HOSTNAME (\S+)
+Value Filldown SECTION (Defined|Effective)
+Value Filldown CFG (\S+)
+Value Filldown ENTRYTYPE (zone|alias)
+Value Filldown NAME (\S+)
+Value MEMBER (\d+,\d+)
+Value MEMBERS_LINE ([A-Za-z0-9_]+(\s*;\s*[A-Za-z0-9_]+)*)
+
+Start
+  ^\s*switchname:\s+${HOSTNAME}\s*$$ -> Continue
+  ^\s*hostname:\s+${HOSTNAME}\s*$$ -> Continue
+  ^\s*${SECTION}\s+configuration:\s*$$ -> Continue
+  ^\s*cfg:\s+${CFG}\s*$$ -> Continue
+  ^\s*${ENTRYTYPE}:\s+${NAME}\s*$$ -> Members
+  ^\s*$$ -> Continue
+  ^.* -> Continue
+
+Members
+  ^\s*${ENTRYTYPE}:\s+${NAME}\s*$$ -> Members
+  ^\s+${MEMBER}\s*$$ -> Record
+  ^\s+${MEMBERS_LINE}\s*$$ -> Record
+  ^\s*$$ -> Start
+  ^.* -> Continue

@@ -1,0 +1,58 @@
+1)      VS_44_20 (192.168.50.44:20) - TCP      Type: ADDRESS
+        State: DOWN
+        Last state change was at Thu Jan  1 03:16:57 2026
+        Time since last state change: 27 days, 04:49:09.800
+        Effective State: DOWN
+        Client Idle Timeout: 600 sec
+        Down state flush: ENABLED
+        Disable Primary Vserver On Down : DISABLED
+        Appflow logging: DISABLED
+        No. of Bound Services :  2 (Total)       0 (Active)
+        Configured Method: SOURCEIPHASH BackupMethod: ROUNDROBIN
+        Network mask: 255.255.255.255
+        Mode: IP
+        Persistence: NONE
+        Connection Failover: STATEFUL
+        L2Conn: OFF
+        Skip Persistency: None
+        Listen Policy: NONE
+        IcmpResponse: PASSIVE
+        RHIstate: PASSIVE
+        New Service Startup Request Rate: 0 PER_SECOND, Increment Interval: 0
+        Mac mode Retain Vlan: DISABLED
+        DBS_LB: DISABLED
+        Process Local: DISABLED
+        Traffic Domain: 0
+        TROFS Persistence honored: ENABLED
+        Retain Connections on Cluster: NO
+        Order Sequence: ASCENDING
+        Current Active Order: None
+2)      VS_44_21 (192.168.50.44:21) - TCP      Type: ADDRESS
+        State: DOWN
+        Last state change was at Thu Jan  1 03:16:57 2026
+        Time since last state change: 27 days, 04:49:09.810
+        Effective State: DOWN
+        Client Idle Timeout: 600 sec
+        Down state flush: ENABLED
+        Disable Primary Vserver On Down : DISABLED
+        Appflow logging: DISABLED
+        No. of Bound Services :  2 (Total)       0 (Active)
+        Configured Method: SOURCEIPHASH BackupMethod: ROUNDROBIN
+        Network mask: 255.255.255.255
+        Mode: IP
+        Persistence: NONE
+        Connection Failover: STATEFUL
+        L2Conn: OFF
+        Skip Persistency: None
+        Listen Policy: NONE
+        IcmpResponse: PASSIVE
+        RHIstate: PASSIVE
+        New Service Startup Request Rate: 0 PER_SECOND, Increment Interval: 0
+        Mac mode Retain Vlan: DISABLED
+        DBS_LB: DISABLED
+        Process Local: DISABLED
+        Traffic Domain: 0
+        TROFS Persistence honored: ENABLED
+        Retain Connections on Cluster: NO
+        Order Sequence: ASCENDING
+        Current Active Order: None

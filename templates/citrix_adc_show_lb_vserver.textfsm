@@ -1,0 +1,37 @@
+Value INDEX (\d+)
+Value NAME (\S+)
+Value VIP (\d+\.\d+\.\d+\.\d+)
+Value PORT (\d+)
+Value PROTOCOL (\S+)
+Value TYPE (\S+)
+Value STATE (\S+)
+Value LAST_STATE_CHANGE (.+)
+Value TIME_SINCE_CHANGE (.+)
+Value EFFECTIVE_STATE (\S+)
+Value CLIENT_IDLE_TIMEOUT (\d+)
+Value DOWN_STATE_FLUSH (\S+)
+Value BOUND_SVC_TOTAL (\d+)
+Value BOUND_SVC_ACTIVE (\d+)
+Value METHOD (\S+)
+Value BACKUP_METHOD (\S+)
+Value NETMASK (\d+\.\d+\.\d+\.\d+)
+Value MODE (\S+)
+Value PERSISTENCE (\S+)
+Value CONN_FAILOVER (\S+)
+Value TRAFFIC_DOMAIN (\d+)
+
+Start
+  ^\s*${INDEX}\)\s+${NAME}\s+\(${VIP}:${PORT}\)\s+-\s+${PROTOCOL}\s+Type:\s+${TYPE}\s*$$
+  ^\s+State:\s+${STATE}\s*$$
+  ^\s+Last\s+state\s+change\s+was\s+at\s+${LAST_STATE_CHANGE}\s*$$
+  ^\s+Time\s+since\s+last\s+state\s+change:\s+${TIME_SINCE_CHANGE}\s*$$
+  ^\s+Effective\s+State:\s+${EFFECTIVE_STATE}\s*$$
+  ^\s+Client\s+Idle\s+Timeout:\s+${CLIENT_IDLE_TIMEOUT}\s+sec\s*$$
+  ^\s+Down\s+state\s+flush:\s+${DOWN_STATE_FLUSH}\s*$$
+  ^\s+No\.\s+of\s+Bound\s+Services\s+:\s+${BOUND_SVC_TOTAL}\s+\(Total\)\s+${BOUND_SVC_ACTIVE}\s+\(Active\)\s*$$
+  ^\s+Configured\s+Method:\s+${METHOD}\s+BackupMethod:\s+${BACKUP_METHOD}\s*$$
+  ^\s+Network\s+mask:\s+${NETMASK}\s*$$
+  ^\s+Mode:\s+${MODE}\s*$$
+  ^\s+Persistence:\s+${PERSISTENCE}\s*$$
+  ^\s+Connection\s+Failover:\s+${CONN_FAILOVER}\s*$$
+  ^\s+Traffic\s+Domain:\s+${TRAFFIC_DOMAIN}\s*$$ -> Record

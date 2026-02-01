@@ -1,0 +1,18 @@
+Value Required INDEX (\d+)
+Value Required PORT (\d+)
+Value Required ADDRESS (\S+)
+Value MEDIA (\S+)
+Value SPEED (\S+)
+Value STATE (\S+)
+Value PROTO (\S+)
+Value DETAILS (.*)
+
+Start
+  ^\s*Index\s+Port\s+Address\s+Media\s+Speed\s+State\s+Proto\s*$$ -> PORTS
+  ^.*$$ -> Start
+
+PORTS
+  ^\s*=+\s*$$ -> PORTS
+  ^\s*${INDEX}\s+${PORT}\s+${ADDRESS}\s+${MEDIA}\s+${SPEED}\s+${STATE}\s+${PROTO}(?:\s+${DETAILS})?\s*$$ -> Record
+  ^\s*$$ -> PORTS
+  ^.*$$ -> PORTS

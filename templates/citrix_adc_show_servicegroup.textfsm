@@ -1,0 +1,48 @@
+Value INDEX (\d+)
+Value NAME (\S+)
+Value PROTOCOL (\S+)
+Value STATE (\S+)
+Value EFFECTIVE_STATE (\S+)
+Value MONITOR_THRESHOLD (\d+)
+Value MAX_CONN (\d+)
+Value MAX_REQ (\d+)
+Value MAX_BW (\d+)
+Value USE_SOURCE_IP (\S+)
+Value USE_PROXY_PORT (\S+)
+Value CKA (\S+)
+Value MONITORING_OWNER (\d+)
+Value TCPB (\S+)
+Value CMP (\S+)
+Value IDLE_CLIENT (\d+)
+Value IDLE_SERVER (\d+)
+Value CLIENT_IP (\S+)
+Value CACHEABLE (\S+)
+Value SC (.+)
+Value SP (\S+)
+Value DOWN_STATE_FLUSH (\S+)
+Value MON_CONN_CLOSE (.+)
+Value APPFLOW (\S+)
+Value CONTENT_INSPECTION (.+)
+Value PROCESS_LOCAL (\S+)
+Value TRAFFIC_DOMAIN (\d+)
+
+Start
+  ^\s*${INDEX}\)\s+${NAME}\s+-\s+${PROTOCOL}\s*$$
+  ^\s+State:\s+${STATE}\s+Effective\s+State:\s+${EFFECTIVE_STATE}\s+Monitor\s+Threshold\s+:\s+${MONITOR_THRESHOLD}\s*$$
+  ^\s+Max\s+Conn:\s+${MAX_CONN}\s+Max\s+Req:\s+${MAX_REQ}\s+Max\s+Bandwidth:\s+${MAX_BW}\s+kbits\s*$$
+  ^\s+Use\s+Source\s+IP:\s+${USE_SOURCE_IP}\s+Use\s+Proxy\s+Port:\s+${USE_PROXY_PORT}\s*$$
+  ^\s+Client\s+Keepalive\(CKA\):\s+${CKA}\s*$$
+  ^\s+Monitoring\s+Owner:\s+${MONITORING_OWNER}\s*$$
+  ^\s+TCP\s+Buffering\(TCPB\):\s+${TCPB}\s*$$
+  ^\s+HTTP\s+Compression\(CMP\):\s+${CMP}\s*$$
+  ^\s+Idle\s+timeout:\s+Client:\s+${IDLE_CLIENT}\s+sec\s+Server:\s+${IDLE_SERVER}\s+sec\s*$$
+  ^\s+Client\s+IP:\s+${CLIENT_IP}\s*$$
+  ^\s+Cacheable:\s+${CACHEABLE}\s*$$
+  ^\s+SC:\s+${SC}\s*$$
+  ^\s+SP:\s+${SP}\s*$$
+  ^\s+Down\s+state\s+flush:\s+${DOWN_STATE_FLUSH}\s*$$
+  ^\s+Monitor\s+Connection\s+Close\s+:\s+${MON_CONN_CLOSE}\s*$$
+  ^\s+Appflow\s+logging:\s+${APPFLOW}\s*$$
+  ^\s+ContentInspection\s+profile\s+name:\s+${CONTENT_INSPECTION}\s*$$
+  ^\s+Process\s+Local:\s+${PROCESS_LOCAL}\s*$$
+  ^\s+Traffic\s+Domain:\s+${TRAFFIC_DOMAIN}\s*$$ -> Record

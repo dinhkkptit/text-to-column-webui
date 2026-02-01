@@ -1,0 +1,5 @@
+hostname,index,name,protocol,state,effective_state,monitor_threshold,max_conn,max_req,max_bw,use_source_ip,use_proxy_port,cka,monitoring_owner,tcpb,cmp,idle_client,idle_server,client_ip,cacheable,sc,sp,down_state_flush,mon_conn_close,appflow,content_inspection,process_local,traffic_domain
+netscaler1,1,Pool_44_20,TCP,ENABLED,DOWN,0,0,0,0,YES,NO,NO,0,NO,NO,600,600,DISABLED,NO,???,OFF,ENABLED,NONE,DISABLED,???,DISABLED,0
+netscaler1,2,Pool_44_21,TCP,ENABLED,DOWN,0,0,0,0,YES,NO,NO,0,NO,NO,600,600,DISABLED,NO,???,OFF,ENABLED,NONE,DISABLED,???,DISABLED,0
+netscaler22,1,Pool_44_20,TCP,ENABLED,DOWN,0,0,0,0,YES,NO,NO,0,NO,NO,600,600,DISABLED,NO,???,OFF,ENABLED,NONE,DISABLED,???,DISABLED,0
+netscaler22,2,Pool_44_21,TCP,ENABLED,DOWN,0,0,0,0,YES,NO,NO,0,NO,NO,600,600,DISABLED,NO,???,OFF,ENABLED,NONE,DISABLED,???,DISABLED,0

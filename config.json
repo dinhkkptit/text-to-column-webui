@@ -1,0 +1,5 @@
+{
+  "platform_aliases": {
+    "netscaler_adc": "citrix_adc"
+  }
+}
