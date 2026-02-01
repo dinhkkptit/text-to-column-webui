@@ -17,6 +17,8 @@ from text_to_column.parser import (
     get_template_preview,
     autodetect_command,
     rows_to_csv,
+    infer_hostname,
+    infer_hostname_after_command,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -129,56 +131,156 @@ async def api_batch_parse(
     platform: str = Form(...),
     command: str = Form(""),
     autodetect: bool = Form(False),
+    batch_mode: str = Form("per_file"),
     files: list[UploadFile] = File(...),
 ):
-    """Parse multiple uploaded .txt files and return a ZIP of per-file CSVs (plus summary.json)."""
+    """Parse uploaded .txt files and return a ZIP.
+
+    batch_mode:
+      - per_file (default): one CSV per uploaded file (original behavior)
+      - combined: group by (platform_resolved, template) and output combined CSV per template
+    """
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
 
-    zbuf = io.BytesIO()
+    batch_mode = (batch_mode or "per_file").strip().lower()
+    if batch_mode not in {"per_file", "combined"}:
+        raise HTTPException(status_code=400, detail="batch_mode must be 'per_file' or 'combined'")
+
+    # -------------------------
+    # Mode 1: per-file CSV
+    # -------------------------
+    if batch_mode == "per_file":
+        summary = []
+        zbuf = io.BytesIO()
+        with zipfile.ZipFile(zbuf, mode="w", compression=zipfile.ZIP_DEFLATED) as z:
+            for up in files:
+                raw_bytes = await up.read()
+                if len(raw_bytes) > 2_000_000:
+                    summary.append({"file": up.filename, "ok": False, "error": "Input too large (max 2MB per file)."})
+                    continue
+
+                raw_text = raw_bytes.decode("utf-8", errors="replace")
+
+                try:
+                    use_cmd = command
+                    if autodetect:
+                        best = autodetect_command(REPO_ROOT, platform=platform, raw_text=raw_text)
+                        use_cmd = best.command
+                    if not use_cmd:
+                        raise ValueError("command is required unless autodetect=true")
+
+                    parsed = parse_text(REPO_ROOT, platform=platform, command=use_cmd, raw_text=raw_text)
+
+                    # stable header order: hostname first if exists, then remaining
+                    headers = list(dict.fromkeys(parsed["headers"]))
+                    if "hostname" in headers:
+                        headers.remove("hostname")
+                        headers = ["hostname"] + headers
+
+                    csv_text = rows_to_csv(headers, parsed["rows"])
+
+                    stem = Path(up.filename or "output").stem
+                    out_name = f"{stem}.csv"
+                    z.writestr(out_name, csv_text)
+                    summary.append({
+                        "file": up.filename,
+                        "ok": True,
+                        "command": parsed.get("command"),
+                        "template": parsed.get("template"),
+                        "rows": len(parsed.get("rows", [])),
+                        "out": out_name,
+                    })
+                except Exception as e:
+                    summary.append({"file": up.filename, "ok": False, "error": str(e)})
+
+            z.writestr("summary.json", __import__("json").dumps(summary, indent=2))
+
+        zbuf.seek(0)
+        headers = {"Content-Disposition": 'attachment; filename="per_file_csvs.zip"'}
+        return StreamingResponse(zbuf, media_type="application/zip", headers=headers)
+
+    # -------------------------
+    # Mode 2: combined CSVs
+    # -------------------------
+
+    # key -> {"headers": set[str], "rows": list[dict]}
+    combined: dict[tuple[str, str], dict] = {}
     summary = []
 
-    with zipfile.ZipFile(zbuf, mode="w", compression=zipfile.ZIP_DEFLATED) as z:
-        for up in files:
-            raw_bytes = await up.read()
-            if len(raw_bytes) > 2_000_000:
-                summary.append({"file": up.filename, "ok": False, "error": "Input too large (max 2MB per file)."})
-                continue
+    for up in files:
+        raw_bytes = await up.read()
+        if len(raw_bytes) > 2_000_000:
+            summary.append({"file": up.filename, "ok": False, "error": "Input too large (max 2MB per file)."})
+            continue
 
-            raw_text = raw_bytes.decode("utf-8", errors="replace")
-            try:
-                use_cmd = command
-                if autodetect:
-                    best = autodetect_command(REPO_ROOT, platform=platform, raw_text=raw_text)
-                    use_cmd = best.command
-                if not use_cmd:
-                    raise ValueError("command is required unless autodetect=true")
+        raw_text = raw_bytes.decode("utf-8", errors="replace")
 
-                parsed = parse_text(REPO_ROOT, platform=platform, command=use_cmd, raw_text=raw_text)
+        try:
+            use_cmd = command
+            if autodetect:
+                best = autodetect_command(REPO_ROOT, platform=platform, raw_text=raw_text)
+                use_cmd = best.command
+            if not use_cmd:
+                raise ValueError("command is required unless autodetect=true")
 
-                headers = list(dict.fromkeys(parsed["headers"]))
-                if "hostname" in headers:
-                    headers.remove("hostname")
-                    headers = ["hostname"] + headers
+            parsed = parse_text(REPO_ROOT, platform=platform, command=use_cmd, raw_text=raw_text)
+            # Combined mode hostname rule: longest text after command slug
+            host = infer_hostname_after_command(up.filename or "unknown", use_cmd)
 
-                csv_text = rows_to_csv(headers, parsed["rows"])
+            # Build rows with hostname injected
+            rows = []
+            for r in parsed.get("rows", []):
+                rr = dict(r)
+                rr["hostname"] = host
+                rows.append(rr)
 
-                stem = (Path(up.filename).stem or "output")
-                out_name = f"{stem}.csv"
-                z.writestr(out_name, csv_text)
-                summary.append({
+            key = (parsed.get("platform_resolved", platform), parsed.get("template", "unknown.textfsm"))
+
+            # Initialize group
+            if key not in combined:
+                combined[key] = {"headers": set(), "rows": []}
+
+            # Track headers (ensure hostname always included)
+            for h in parsed.get("headers", []):
+                combined[key]["headers"].add(h)
+            combined[key]["headers"].add("hostname")
+
+            combined[key]["rows"].extend(rows)
+
+            summary.append(
+                {
                     "file": up.filename,
                     "ok": True,
+                    "hostname": host,
                     "command": parsed.get("command"),
                     "template": parsed.get("template"),
-                    "rows": len(parsed.get("rows", [])),
-                    "out": out_name,
-                })
-            except Exception as e:
-                summary.append({"file": up.filename, "ok": False, "error": str(e)})
+                    "rows": len(rows),
+                }
+            )
+        except Exception as e:
+            summary.append({"file": up.filename, "ok": False, "error": str(e)})
+
+    # Write output zip
+    zbuf = io.BytesIO()
+    with zipfile.ZipFile(zbuf, mode="w", compression=zipfile.ZIP_DEFLATED) as z:
+        outputs = []
+        for (platform_resolved, template), payload in combined.items():
+            # stable header order: hostname first, then remaining sorted
+            headers = ["hostname"] + sorted([h for h in payload["headers"] if h != "hostname"])
+            csv_text = rows_to_csv(headers, payload["rows"])
+
+            out_name = template.replace(".textfsm", ".csv")
+            # If template doesn't end with .textfsm, still output a sensible name
+            if out_name == template:
+                out_name = f"{platform_resolved}_{template}.csv".replace("/", "_")
+
+            z.writestr(out_name, csv_text)
+            outputs.append({"template": template, "platform_resolved": platform_resolved, "out": out_name, "rows": len(payload["rows"])})
 
         z.writestr("summary.json", __import__("json").dumps(summary, indent=2))
+        z.writestr("outputs.json", __import__("json").dumps(outputs, indent=2))
 
     zbuf.seek(0)
-    headers = {"Content-Disposition": 'attachment; filename="parsed_csvs.zip"'}
+    headers = {"Content-Disposition": 'attachment; filename="combined_csvs.zip"'}
     return StreamingResponse(zbuf, media_type="application/zip", headers=headers)

@@ -271,6 +271,61 @@ def autodetect_command(
     return best
 
 
+
+def infer_hostname(filename: str) -> str:
+    """Infer hostname from an uploaded filename.
+
+    Expected patterns:
+      - <anything>_<hostname>.txt  -> hostname is last '_' token
+      - <command>__<hostname>.txt  -> if '__' present, hostname is text after last '__'
+
+    Falls back to full stem if it cannot split.
+    """
+    stem = Path(filename).stem or filename
+    if "__" in stem:
+        parts = stem.split("__")
+        return parts[-1] or stem
+    parts = stem.split("_")
+    return parts[-1] if len(parts) >= 2 and parts[-1] else stem
+
+
+def command_to_slug(command: str) -> str:
+    """Convert a CLI command string into a filename slug.
+
+    Example:
+      "show lb vserver" -> "show_lb_vserver"
+    """
+    parts = [p for p in command.strip().lower().split() if p]
+    return "_".join(parts)
+
+
+def infer_hostname_after_command(filename: str, command: str) -> str:
+    """Infer hostname as the **longest** text after the command slug.
+
+    This is used for *combined CSV* batch mode.
+
+    Example:
+      filename: show_lb_vserver_netscaler1_L4_1.txt
+      command:  show lb vserver
+      -> hostname: netscaler1_L4_1
+
+    If the filename doesn't start with the command slug, falls back to infer_hostname().
+    """
+    stem = Path(filename).stem or filename
+    slug = command_to_slug(command)
+
+    s = stem.lower()
+    p = slug.lower()
+
+    if p and s.startswith(p):
+        rest = stem[len(slug):]
+        rest = rest.lstrip("_")
+        if rest:
+            return rest
+
+    return infer_hostname(filename)
+
+
 def rows_to_csv(headers: List[str], rows: List[Dict[str, Any]]) -> str:
     out = io.StringIO()
     writer = csv.DictWriter(out, fieldnames=headers)

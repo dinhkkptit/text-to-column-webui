@@ -37,13 +37,17 @@
 
     <button id="parseBtn">Parse</button>
     <button id="csvBtn">Parse → CSV</button>
-    <button id="previewBtn">Template preview</button>
   </div>
 
   <div class="row" style="margin-top: 4px;">
     <label><b>Batch parse:</b></label>
+    <label>Mode:</label>
+    <select id="batchMode">
+      <option value="per_file" selected>Per-file CSV (default)</option>
+      <option value="combined">Combined CSV (group by template)</option>
+    </select>
     <input id="files" type="file" multiple accept=".txt" />
-    <button id="batchBtn">Upload → ZIP (CSVs)</button>
+    <button id="batchBtn">Upload → Download ZIP</button>
     <span class="meta">(uses command above, or Auto-detect)</span>
   </div>
 
@@ -129,45 +133,12 @@ async function doParse(output="json") {
   }
 }
 
-async function previewTemplate() {
-  const platform = document.querySelector("#platform").value;
-  const command = document.querySelector("#command").value;
-  const autodetect = document.querySelector("#autodetect").checked;
-  const text = document.querySelector("#input").value;
-
-  document.querySelector("#status").textContent = "Loading template...";
-  document.querySelector("#out").innerHTML = "";
-
-  try {
-    let useCommand = command;
-    if (autodetect) {
-      const det = await api("/api/autodetect", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({platform, command:"", text, output:"json", autodetect:true})
-      });
-      useCommand = det.command;
-    }
-
-    const data = await api(`/api/template_preview?platform=${encodeURIComponent(platform)}&command=${encodeURIComponent(useCommand)}`);
-    document.querySelector("#status").textContent = `Template: ${data.template}`;
-    document.querySelector("#out").innerHTML =
-      `<h3>Template preview</h3>
-       <div class="meta">command: <b>${escapeHtml(useCommand)}</b></div>
-       <h4>Normalized (used by parser)</h4>
-       <pre>${escapeHtml(data.normalized)}</pre>
-       <h4>Raw</h4>
-       <pre>${escapeHtml(data.raw)}</pre>`;
-  } catch (e) {
-    document.querySelector("#status").textContent = "";
-    document.querySelector("#out").innerHTML = `<div class="err"><b>Error:</b>\n${escapeHtml(e.message)}</div>`;
-  }
-}
 
 async function batchParse() {
   const platform = document.querySelector("#platform").value;
   const command = document.querySelector("#command").value;
   const autodetect = document.querySelector("#autodetect").checked;
+  const batchMode = document.querySelector("#batchMode").value;
   const filesEl = document.querySelector("#files");
   if (!filesEl.files || filesEl.files.length === 0) {
     alert("Choose one or more .txt files first.");
@@ -181,6 +152,7 @@ async function batchParse() {
   fd.append("platform", platform);
   fd.append("command", command);
   fd.append("autodetect", autodetect ? "true" : "false");
+  fd.append("batch_mode", batchMode);
   for (const f of filesEl.files) fd.append("files", f, f.name);
 
   try {
@@ -190,7 +162,8 @@ async function batchParse() {
       throw new Error(data.detail || `HTTP ${res.status}`);
     }
     const blob = await res.blob();
-    downloadBlob(`parsed_csvs_${platform}.zip`, blob);
+    const zipName = batchMode === "combined" ? `combined_csvs_${platform}.zip` : `per_file_csvs_${platform}.zip`;
+    downloadBlob(zipName, blob);
     document.querySelector("#status").textContent = "OK. ZIP downloaded (includes summary.json).";
   } catch (e) {
     document.querySelector("#status").textContent = "";
@@ -216,7 +189,6 @@ function downloadText(filename, text, mime) {
 document.querySelector("#platform").addEventListener("change", loadCommands);
 document.querySelector("#parseBtn").addEventListener("click", () => doParse("json"));
 document.querySelector("#csvBtn").addEventListener("click", () => doParse("csv"));
-document.querySelector("#previewBtn").addEventListener("click", previewTemplate);
 document.querySelector("#batchBtn").addEventListener("click", batchParse);
 
 loadPlatforms();
