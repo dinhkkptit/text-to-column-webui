@@ -943,10 +943,8 @@
     "tool profile": "mikrotik_routeros_tool_profile.textfsm",
     "tool speed-test address": "mikrotik_routeros_tool_speed-test_address.textfsm",
     "user active print": "mikrotik_routeros_user_active_print.textfsm",
-    "user print": "mikrotik_routeros_user_print.textfsm"
-  },
-  "mikrotik_routeros_routing_ospf": {
-    "interface print terse": "mikrotik_routeros_routing_ospf_interface_print_terse.textfsm"
+    "user print": "mikrotik_routeros_user_print.textfsm",
+    "routing ospf interface print terse": "mikrotik_routeros_routing_ospf_interface_print_terse.textfsm"
   },
   "oneaccess_oneos": {
     "cat bsa bsaboot.inf": "oneaccess_oneos_cat_bsa_bsaboot.inf.textfsm",
